@@ -1,93 +1,91 @@
-<!--
-  (c) 2023, Center for Computational Thinking and Design at Aarhus University and contributors
- 
-  SPDX-License-Identifier: MIT
- -->
-
-<style global windi:preflights:global windi:safelist:global>
-  @keyframes textAni {
-    0% {
-      opacity: 0;
-    }
-    3% {
-      opacity: 1;
-    }
-    97% {
-      opacity: 1;
-    }
-    100% {
-      opacity: 0;
-    }
-  }
-</style>
-
 <script lang="ts">
-  import ConnectionBehaviours from './script/microbit-interfacing/connection-behaviours/ConnectionBehaviours';
-  import InputBehaviour from './script/microbit-interfacing/connection-behaviours/InputBehaviour';
-  import OutputBehaviour from './script/microbit-interfacing/connection-behaviours/OutputBehaviour';
-  import OverlayView from './views/OverlayView.svelte';
-  import SideBarMenuView from './views/SideBarMenuView.svelte';
-  import PageContentView from './views/PageContentView.svelte';
-  import BottomBarMenuView from './views/BottomBarMenuView.svelte';
-  import CookieBanner from './components/cookie-bannner/CookieBanner.svelte';
-  import { fade } from 'svelte/transition';
-  import { compatibility, state } from './script/stores/uiStore';
-  import LoadingSpinner from './components/LoadingSpinner.svelte';
-  import IncompatiblePlatformView from './views/IncompatiblePlatformView.svelte';
-  import BluetoothIncompatibilityWarningDialog from './components/BluetoothIncompatibilityWarningDialog.svelte';
-  import CookieManager from './script/CookieManager';
-  import { DeviceRequestStates } from './script/stores/connectDialogStore';
-  import Router from './router/Router.svelte';
-  import { Feature, getFeature } from './script/FeatureToggles';
+  import MBSpecs from './script/MBSpecs';
+  import MicrobitBluetooth from './script/MicrobitBluetooth';
 
-  ConnectionBehaviours.setInputBehaviour(new InputBehaviour());
-  ConnectionBehaviours.setOutputBehaviour(new OutputBehaviour());
+  let microbitReference: MicrobitBluetooth | undefined = undefined;
 
-  if (CookieManager.isReconnectFlagSet()) {
-    $state.offerReconnect = true;
-    $state.reconnectState = DeviceRequestStates.INPUT;
-    CookieManager.unsetReconnectFlag();
-  }
+  let inputFieldValue = 'guzag';
+  let xVal = '0';
+  let yVal = '0';
+  let zVal = '0';
 
-  document.title = getFeature(Feature.TITLE);
+  const connectToMicrobit = async (name: string | undefined) => {
+    const bluetoothDevice = await MicrobitBluetooth.requestDevice(err => {
+      console.log('Connection Failed');
+    }, name);
+
+    const microbit = await MicrobitBluetooth.createMicrobitBluetooth(
+      bluetoothDevice,
+      () => console.log('Connected Successfully'),
+      manually => {
+        // Manually: True if calling microbit.disconnect(), false if connection lost
+        console.log('Disconnected', manually);
+      },
+      err => console.log('Connection Failed', err),
+      mb => console.log('Connection was lost, but reconnected'), // mb: reference to the MicrobitBluetooth object
+      () => console.log('Connection was lost, and we failed to reconnect'),
+    );
+
+    microbit.listenToAccelerometer((x, y, z) => {
+      xVal = x.toFixed(0);
+      yVal = y.toFixed(0);
+      zVal = z.toFixed(0);
+    });
+    microbitReference = microbit;
+  };
+
+  const connectToAnyHandler = async () => {
+    await connectToMicrobit(undefined);
+  };
+
+  const connectToNamedMicrobitHandler = async () => {
+    await connectToMicrobit(inputFieldValue);
+  };
+
+  $: pattern = MBSpecs.Utility.nameToPattern(inputFieldValue);
 </script>
 
-<Router>
-  {#if !$compatibility.platformAllowed}
-    <!-- Denies mobile users access to the platform -->
-    <IncompatiblePlatformView />
-  {:else}
-    {#if $state.isLoading}
-      <main class="h-screen w-screen bg-primary flex absolute z-10" transition:fade>
-        <LoadingSpinner />
-      </main>
-    {/if}
-    <!-- Here we use the hidden class, to allow for it to load in. -->
-    <!-- <main class="h-screen w-screen m-0 relative flex" class:hidden={$state.isLoading}> -->
-    <main class="h-screen w-screen m-0 relative flex">
-      <!-- OVERLAY ITEMS -->
-      <CookieBanner />
-      <OverlayView />
-      <BluetoothIncompatibilityWarningDialog />
+<div class="m-10">
+  <p>Connecting to any microbit</p>
+  <div class="flex flex-row">
+    <button class="rounded-full bg-blue-300 px-3" on:click={connectToAnyHandler}>
+      Connect
+    </button>
+    <button
+      class="rounded-full bg-blue-300 px-3"
+      on:click={() => microbitReference?.disconnect()}>
+      Disconnect
+    </button>
+  </div>
 
-      <!-- SIDE BAR -->
-      <div class="h-full flex min-w-75 max-w-75">
-        <SideBarMenuView />
-      </div>
+  <p>Connecting to named microbit</p>
+  <input class="border-1 border-solid border-black" bind:value={inputFieldValue} />
+  <button class="rounded-full bg-blue-300 px-3" on:click={connectToNamedMicrobitHandler}>
+    Connect to '{inputFieldValue}'
+  </button>
 
-      <div
-        class="h-full w-full overflow-y-hidden overflow-x-auto
-    flex flex-col bg-backgrounddark shadow-2xl">
-        <!-- CONTENT -->
-        <div class="relative z-1 flex-1 overflow-y-auto flex-row">
-          <PageContentView />
-        </div>
+  <div>
+    <p>Pairing pattern(type in the name of a microbit above)</p>
+    <div class="inline-grid grid-cols-5">
+      {#each pattern as elem}
+        <div
+          class="border-1 border-solid border-black w-10 h-10"
+          class:bg-green-400={elem}
+          class:bg-blue-200={!elem} />
+      {/each}
+    </div>
+    <p>
+      You can also go from pattern to name: <span class="font-bold">
+        MBSpecs.Utility.patternToName(pattern)={MBSpecs.Utility.patternToName(
+          pattern,
+        )}</span>
+    </p>
+  </div>
 
-        <!-- BOTTOM BAR -->
-        <div class="h-160px w-full">
-          <BottomBarMenuView />
-        </div>
-      </div>
-    </main>
-  {/if}
-</Router>
+  <p>Accelerometer:</p>
+  <div class="grid w-50 grid-cols-3">
+    <div>{xVal}</div>
+    <div>{yVal}</div>
+    <div>{zVal}</div>
+  </div>
+</div>

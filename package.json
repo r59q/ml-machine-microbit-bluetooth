@@ -7,7 +7,7 @@
   "license": "MIT",
   "scripts": {
     "build": "node prepEnv.js simple && vite build",
-    "dev": "node prepEnv.js unbranded && vite",
+    "dev": "vite",
     "devML": "node prepEnv.js branded && vite",
     "devSimple": "node prepEnv.js simple && vite",
     "start": "vite dist --host",
@@ -27,7 +27,7 @@
     "@types/node": "^18.16.0",
     "@types/three": "^0.152.0",
     "@types/w3c-web-usb": "^1.0.6",
-    "@types/web-bluetooth": "^0.0.17",
+    "@types/web-bluetooth": "^0.0.20",
     "@typescript-eslint/eslint-plugin": "^5.59.0",
     "@typescript-eslint/parser": "^5.59.0",
     "eslint": "^8.43.0",
